@@ -109,7 +109,7 @@ public class JudgeDataEntryView extends VerticalLayout {
         // --- 1. Judge Selection Section ---
         H2 mainTitle = new H2("Judge Scoring Portal");
         mainTitle.getStyle().set("margin-top", "0");
-        Paragraph judgeInstruction = new Paragraph("Welcome! Please select your name from the dropdown to begin scoring.");
+        Paragraph judgeInstruction = new Paragraph("Welcome! Please select your name from the dropdown to begin scoring. Once selected, your name will be locked for this session.");
         judgeInstruction.getStyle().set("color", "var(--lumo-secondary-text-color)");
         
         judgeComboBox.setItems(judgeRepository.findAll());
@@ -186,6 +186,7 @@ public class JudgeDataEntryView extends VerticalLayout {
             if (judgeSelected) {
                 scoringTitle.setText("Enter Scores for " + selectedJudge.getName());
                 loadHistory(); 
+                judgeComboBox.setEnabled(false);
             } else {
                 scoringTitle.setText("Enter Scores");
                 clearContingentAndCategory();

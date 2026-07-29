@@ -1,5 +1,7 @@
 package com.tab.tab.view;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -27,17 +29,26 @@ import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.ColumnTextAlign;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.data.renderer.NumberRenderer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
 
 @Route("dashboard")
 @PageTitle("Live Dashboard")
@@ -70,42 +81,28 @@ public class DashboardView extends VerticalLayout {
         this.judgeRepository = judgeRepository;
         this.contingentRepository = contingentRepository;
 
-        // --- Inject Custom CSS for Dashboard and Score Tables ---
+        // --- Inject Custom CSS ---
         Html customStyle = new Html("<style>" +
-                /* Dashboard Card & Header */
                 ".dashboard-card { background-color: var(--lumo-base-color); border-radius: var(--lumo-border-radius-l); box-shadow: 0 4px 12px var(--lumo-shade-10pct); padding: var(--lumo-space-l); width: 100%; box-sizing: border-box; } " +
                 ".dashboard-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--lumo-space-m); margin-bottom: var(--lumo-space-m); } " +
                 ".dashboard-title { margin: 0; font-size: var(--lumo-font-size-xxl); color: var(--lumo-primary-text-color); } " +
                 ".live-badge { background-color: var(--lumo-error-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: var(--lumo-font-size-xs); font-weight: bold; margin-left: 8px; animation: pulse 2s infinite; } " +
                 "@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } } " +
                 ".dashboard-grid { width: 100%; font-size: var(--lumo-font-size-s); } " +
-                
-                /* Score Tables CSS - Matching Vaadin Grid Lumo Theme */
-                /* Category Title: Acts as a clear section divider with generous spacing */
                 ".category-title { color: var(--lumo-primary-text-color); border-bottom: 2px solid var(--lumo-primary-color); padding-bottom: var(--lumo-space-xs); margin-top: var(--lumo-space-xl); margin-bottom: var(--lumo-space-l); font-size: var(--lumo-font-size-l); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; } " +
-                
                 ".criteria-table-card { background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: 0 2px 8px var(--lumo-shade-10pct); margin-bottom: var(--lumo-space-l); overflow: hidden; border: 1px solid var(--lumo-contrast-10pct); } " +
                 ".criteria-title { margin: 0; padding: var(--lumo-space-m); background-color: var(--lumo-contrast-5pct); font-size: var(--lumo-font-size-m); border-bottom: 1px solid var(--lumo-contrast-10pct); color: var(--lumo-body-text-color); font-weight: 500; } " +
                 ".table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; } " +
                 ".score-table { width: 100%; border-collapse: collapse; font-size: var(--lumo-font-size-s); font-family: var(--lumo-font-family); } " +
                 ".score-table th, .score-table td { padding: var(--lumo-space-s) var(--lumo-space-m); text-align: center; border-bottom: 1px solid var(--lumo-contrast-10pct); white-space: nowrap; } " +
-                
-                /* Header styling to perfectly match Vaadin Grid */
                 ".score-table th { background-color: var(--lumo-contrast-5pct); font-weight: 500; color: var(--lumo-secondary-text-color); font-size: var(--lumo-font-size-s); position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--lumo-contrast-20pct); } " +
-                
-                /* Row striping to match LUMO_ROW_STRIPES */
                 ".score-table tbody tr:nth-child(even) td { background-color: var(--lumo-contrast-5pct); } " +
-                
-                /* Sticky First Column for Mobile Scrolling */
                 ".score-table td.contingent-cell { text-align: left; font-weight: 500; background-color: var(--lumo-base-color); position: sticky; left: 0; z-index: 1; border-right: 1px solid var(--lumo-contrast-10pct); } " +
                 ".score-table tbody tr:nth-child(even) td.contingent-cell { background-color: var(--lumo-contrast-5pct); } " +
                 ".score-table th:first-child { text-align: left; position: sticky; left: 0; z-index: 3; background-color: var(--lumo-contrast-5pct); border-right: 1px solid var(--lumo-contrast-20pct); } " +
-                
                 ".score-table td.score-cell { font-variant-numeric: tabular-nums; font-weight: 400; color: var(--lumo-body-text-color); } " +
                 ".score-table tbody tr:hover td:not(.contingent-cell) { background-color: var(--lumo-primary-color-10pct); } " +
                 ".no-data { display: flex; align-items: center; justify-content: center; height: 150px; color: var(--lumo-secondary-text-color); font-style: italic; } " +
-                
-                /* Responsive Adjustments */
                 "@media (max-width: 600px) { " +
                 "  .dashboard-title { font-size: var(--lumo-font-size-l); } " +
                 "  .dashboard-card { padding: var(--lumo-space-m); } " +
@@ -116,12 +113,10 @@ public class DashboardView extends VerticalLayout {
                 "} " +
                 "</style>");
 
-        // --- Layout Configuration ---
         setSizeFull();
         setAlignItems(Alignment.CENTER);
         getStyle().set("padding", "var(--lumo-space-m)");
         getStyle().set("background-color", "var(--lumo-contrast-5pct)");
-
         add(customStyle);
 
         // --- Header Section ---
@@ -130,7 +125,6 @@ public class DashboardView extends VerticalLayout {
         
         H1 title = new H1("Ranaw Street Dance Showdown");
         title.addClassName("dashboard-title");
-        
         Span liveBadge = new Span("LIVE");
         liveBadge.addClassName("live-badge");
         title.add(liveBadge);
@@ -145,13 +139,44 @@ public class DashboardView extends VerticalLayout {
             setupGridColumns(event.getValue());
         });
 
-        header.add(title, categoryFilterComboBox);
+        // --- Export & Backup Buttons ---
+        HorizontalLayout actionButtons = new HorizontalLayout();
+        actionButtons.setSpacing(true);
+
+        Button printBtn = new Button("Save as PDF", e -> UI.getCurrent().getPage().executeJs("window.print()"));
+        printBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        printBtn.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        StreamResource csvResource = new StreamResource("dashboard_backup.csv", () -> {
+            StringBuilder sb = new StringBuilder();
+            sb.append("\uFEFF"); 
+            sb.append("Rank,Contingent,Street Dance (%),Cultural Showdown (%),Grand Total (%)\n");
+            DecimalFormat percentFormat = new DecimalFormat("0.00");
+            for (ContingentResultDTO dto : currentResults) {
+                String name = "\"" + dto.getContingentName().replace("\"", "\"\"") + "\""; 
+                sb.append(dto.getRank()).append(",")
+                  .append(name).append(",")
+                  .append(percentFormat.format(dto.getStreetDanceTotal() * 10)).append(",")
+                  .append(percentFormat.format(dto.getCulturalShowdownTotal() * 10)).append(",")
+                  .append(percentFormat.format(dto.getGrandTotal() * 5)).append("\n");
+            }
+            return new ByteArrayInputStream(sb.toString().getBytes(StandardCharsets.UTF_8));
+        });
+
+        Anchor downloadAnchor = new Anchor(csvResource, "");
+        downloadAnchor.getElement().setAttribute("download", true);
+        Button csvBtn = new Button("Export CSV");
+        csvBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+        csvBtn.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        downloadAnchor.add(csvBtn);
+
+        actionButtons.add(printBtn, csvBtn);
+        header.add(title, categoryFilterComboBox, actionButtons);
 
         // --- Grid Section ---
         grid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES, GridVariant.LUMO_COMPACT);
         grid.addClassName("dashboard-grid");
         grid.setWidth("100%");
-        
         Div gridCard = new Div(grid);
         gridCard.addClassName("dashboard-card");
 
@@ -160,151 +185,156 @@ public class DashboardView extends VerticalLayout {
         tablesCard.addClassName("dashboard-card");
         tablesCard.getStyle().set("margin-top", "var(--lumo-space-m)");
 
+        // --- NEW: Admin Controls / Reset Section ---
+        H3 adminTitle = new H3("⚠️ Admin Controls");
+        adminTitle.getStyle().set("color", "var(--lumo-error-text-color)");
+        adminTitle.getStyle().set("margin-top", "0");
+        adminTitle.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
+
+        Paragraph adminWarning = new Paragraph("Danger Zone: The following action will permanently erase all scoring data from the database.");
+        adminWarning.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        adminWarning.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        adminWarning.getStyle().set("margin-bottom", "var(--lumo-space-m)");
+
+        Button resetBtn = new Button("Delete All Scores", e -> openResetConfirmation());
+        resetBtn.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_PRIMARY);
+        
+        Div adminCard = new Div(adminTitle, adminWarning, resetBtn);
+        adminCard.addClassName("dashboard-card");
+        adminCard.getStyle().set("border", "2px dashed var(--lumo-error-color)");
+        adminCard.getStyle().set("margin-top", "var(--lumo-space-l)");
+        adminCard.getStyle().set("background-color", "var(--lumo-error-color-10pct)");
+
         // --- Main Content Layout ---
-        VerticalLayout contentLayout = new VerticalLayout(header, gridCard, tablesCard);
+        VerticalLayout contentLayout = new VerticalLayout(header, gridCard, tablesCard, adminCard);
         contentLayout.setWidth("100%");
         contentLayout.setMaxWidth("1200px");
         contentLayout.setPadding(false);
         contentLayout.setSpacing(true);
-        
         add(contentLayout);
         expand(gridCard);
 
         setupGridColumns(null);
     }
 
+    /**
+     * Opens a strong warning dialog before deleting all scores.
+     */
+    private void openResetConfirmation() {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("⚠️ Warning: Delete All Scores");
+        dialog.setText("Are you absolutely sure you want to delete ALL submitted scores for ALL contingents and judges?\n\n" +
+                       "This action will permanently clear the database and CANNOT be undone.");
+        
+        dialog.setCancelText("Cancel");
+        dialog.setConfirmText("Yes, Delete All");
+        dialog.setConfirmButtonTheme("error primary");
+        
+        dialog.addConfirmListener(event -> {
+            // Wipe the database
+            scoreRepository.deleteAll();
+            
+            // Notify user
+            Notification.show("All scores have been successfully deleted.", 3000, Notification.Position.MIDDLE);
+            
+            // Refresh the UI to show empty tables
+            refreshGrid(); 
+        });
+        
+        dialog.open();
+    }
+
     private void setupGridColumns(Category selectedCategory) {
         grid.removeAllColumns();
-
         grid.addColumn(dto -> currentResults.indexOf(dto) + 1)
                 .setHeader("Rank").setSortable(false).setFlexGrow(0).setWidth("60px").setTextAlign(ColumnTextAlign.CENTER);
-
         grid.addColumn(ContingentResultDTO::getContingentName)
                 .setHeader("Contingent").setSortable(false).setFlexGrow(2);
 
-        DecimalFormat decimalFormat = new DecimalFormat("0.00");
-
+        DecimalFormat percentFormat = new DecimalFormat("0.00'%'");
         if (selectedCategory == null) {
-            grid.addColumn(new NumberRenderer<>(ContingentResultDTO::getStreetDanceTotal, decimalFormat, "N/A"))
-                    .setHeader("Street").setSortable(false).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
-            grid.addColumn(new NumberRenderer<>(ContingentResultDTO::getCulturalShowdownTotal, decimalFormat, "N/A"))
-                    .setHeader("Cultural").setSortable(false).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
+            grid.addColumn(new NumberRenderer<>(dto -> dto.getStreetDanceTotal() * 10, percentFormat, "N/A"))
+                    .setHeader("Street (%)").setSortable(true).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
+            grid.addColumn(new NumberRenderer<>(dto -> dto.getCulturalShowdownTotal() * 10, percentFormat, "N/A"))
+                    .setHeader("Cultural (%)").setSortable(true).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         } else {
             criteriaRepository.findAll().stream()
                     .filter(criteria -> criteria.getCategory() == selectedCategory)
+                    .sorted(Comparator.comparing(Criteria::getDisplayName))
                     .forEach(criteria ->
-                            grid.addColumn(new NumberRenderer<>(dto -> dto.getWeightedScores().get(criteria), decimalFormat, "N/A"))
-                                    .setHeader(criteria.getDisplayName()).setSortable(false).setFlexGrow(1).setWidth("90px").setTextAlign(ColumnTextAlign.END)
+                            grid.addColumn(new NumberRenderer<>(dto -> dto.getWeightedScores().get(criteria) * 10, percentFormat, "N/A"))
+                                    .setHeader(criteria.getDisplayName()).setSortable(true).setFlexGrow(1).setWidth("120px").setTextAlign(ColumnTextAlign.END)
                     );
-            
-            String totalHeader = selectedCategory == Category.STREET_DANCE ? "Street Total" : "Cultural Total";
+            String totalHeader = selectedCategory == Category.STREET_DANCE ? "Street Total (%)" : "Cultural Total (%)";
             NumberRenderer<ContingentResultDTO> totalRenderer = selectedCategory == Category.STREET_DANCE ?
-                    new NumberRenderer<ContingentResultDTO>(ContingentResultDTO::getStreetDanceTotal, decimalFormat, "N/A") :
-                    new NumberRenderer<ContingentResultDTO>(ContingentResultDTO::getCulturalShowdownTotal, decimalFormat, "N/A");
-                    
-            grid.addColumn(totalRenderer).setHeader(totalHeader).setSortable(false).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
+                    new NumberRenderer<>(dto -> dto.getStreetDanceTotal() * 10, percentFormat, "N/A") :
+                    new NumberRenderer<>(dto -> dto.getCulturalShowdownTotal() * 10, percentFormat, "N/A");
+            grid.addColumn(totalRenderer).setHeader(totalHeader).setSortable(true).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         }
-
-        grid.addColumn(new NumberRenderer<>(ContingentResultDTO::getGrandTotal, decimalFormat, "N/A"))
-                .setHeader("Grand Total").setSortable(false).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
-
+        grid.addColumn(new NumberRenderer<>(dto -> dto.getGrandTotal() * 5, percentFormat, "N/A"))
+                .setHeader("Grand Total (%)").setSortable(true).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         refreshGrid();
     }
 
-    /**
-     * Fetches raw scores and builds HTML tables for each criteria.
-     */
     private void updateScoreTables(Category selectedCategory) {
         List<Score> allScores = scoreRepository.findAll();
         List<Criteria> allCriteria = criteriaRepository.findAll();
         List<Contingent> allContingents = contingentRepository.findAll();
         List<Judge> allJudges = judgeRepository.findAll();
 
-        // Filter criteria based on the selected category
         List<Criteria> criteriaToShow = allCriteria.stream()
                 .filter(c -> selectedCategory == null || c.getCategory() == selectedCategory)
                 .toList();
 
         if (criteriaToShow.isEmpty()) {
-            scoreTablesDiv.getElement().setProperty("innerHTML", 
-                "<div class='no-data'>No criteria found for this category.</div>");
+            scoreTablesDiv.getElement().setProperty("innerHTML", "<div class='no-data'>No criteria found for this category.</div>");
             return;
         }
 
-        // Group scores: Criteria -> Contingent -> Judge -> ScoreValue
         Map<Criteria, Map<Contingent, Map<Judge, Integer>>> scoreMap = new LinkedHashMap<>();
-        
-        // Initialize map structure to ensure all contingents/judges appear even if no score yet
         for (Criteria c : criteriaToShow) {
             scoreMap.put(c, new LinkedHashMap<>());
             for (Contingent cont : allContingents) {
                 scoreMap.get(c).put(cont, new LinkedHashMap<>());
-                for (Judge j : allJudges) {
-                    scoreMap.get(c).get(cont).put(j, null); 
-                }
+                for (Judge j : allJudges) { scoreMap.get(c).get(cont).put(j, null); }
             }
         }
-
-        // Populate actual scores
         for (Score s : allScores) {
             if (scoreMap.containsKey(s.getCriteria())) {
-                scoreMap.get(s.getCriteria())
-                        .get(s.getContingent())
-                        .put(s.getJudge(), s.getRawScore());
+                scoreMap.get(s.getCriteria()).get(s.getContingent()).put(s.getJudge(), s.getRawScore());
             }
         }
 
-        // Build HTML
         StringBuilder html = new StringBuilder();
-        
-        // Group tables by Category for better organization
         Map<Category, List<Criteria>> criteriaByCategory = criteriaToShow.stream()
                 .collect(Collectors.groupingBy(Criteria::getCategory, LinkedHashMap::new, Collectors.toList()));
 
         for (Map.Entry<Category, List<Criteria>> catEntry : criteriaByCategory.entrySet()) {
             html.append("<h2 class='category-title'>").append(catEntry.getKey().name().replace("_", " ")).append("</h2>");
-            
             for (Criteria criteria : catEntry.getValue()) {
-                html.append("<div class='criteria-table-card'>");
-                html.append("<h3 class='criteria-title'>").append(criteria.getDisplayName()).append("</h3>");
-                html.append("<div class='table-wrapper'>");
-                html.append("<table class='score-table'>");
-                
-                // Header
-                html.append("<thead><tr><th>Contingent</th>");
-                for (Judge j : allJudges) {
-                    html.append("<th>").append(j.getName()).append("</th>");
-                }
-                html.append("</tr></thead>");
-                
-                // Body
-                html.append("<tbody>");
+                html.append("<div class='criteria-table-card'><h3 class='criteria-title'>").append(criteria.getDisplayName()).append("</h3><div class='table-wrapper'><table class='score-table'><thead><tr><th>Contingent</th>");
+                for (Judge j : allJudges) { html.append("<th>").append(j.getName()).append("</th>"); }
+                html.append("</tr></thead><tbody>");
                 Map<Contingent, Map<Judge, Integer>> contMap = scoreMap.get(criteria);
                 for (Contingent cont : allContingents) {
                     html.append("<tr><td class='contingent-cell'>").append(cont.getDisplayName()).append("</td>");
                     Map<Judge, Integer> judgeMap = contMap.get(cont);
                     for (Judge j : allJudges) {
                         Integer score = judgeMap.get(j);
-                        String displayScore = (score != null) ? String.valueOf(score) : "-";
-                        html.append("<td class='score-cell'>").append(displayScore).append("</td>");
+                        html.append("<td class='score-cell'>").append(score != null ? score : "-").append("</td>");
                     }
                     html.append("</tr>");
                 }
                 html.append("</tbody></table></div></div>");
             }
         }
-        
         scoreTablesDiv.getElement().setProperty("innerHTML", html.toString());
     }
 
     private void sortResults(List<ContingentResultDTO> results, Category category) {
-        if (category == null) {
-            results.sort(Comparator.comparingDouble(ContingentResultDTO::getGrandTotal).reversed());
-        } else if (category == Category.STREET_DANCE) {
-            results.sort(Comparator.comparingDouble(ContingentResultDTO::getStreetDanceTotal).reversed());
-        } else if (category == Category.CULTURAL_SHOWDOWN) {
-            results.sort(Comparator.comparingDouble(ContingentResultDTO::getCulturalShowdownTotal).reversed());
-        }
+        if (category == null) results.sort(Comparator.comparingDouble(ContingentResultDTO::getGrandTotal).reversed());
+        else if (category == Category.STREET_DANCE) results.sort(Comparator.comparingDouble(ContingentResultDTO::getStreetDanceTotal).reversed());
+        else if (category == Category.CULTURAL_SHOWDOWN) results.sort(Comparator.comparingDouble(ContingentResultDTO::getCulturalShowdownTotal).reversed());
     }
 
     @Override
@@ -317,9 +347,7 @@ public class DashboardView extends VerticalLayout {
 
     @Override
     protected void onDetach(DetachEvent detachEvent) {
-        if (feederThread != null) {
-            feederThread.stop();
-        }
+        if (feederThread != null) feederThread.stop();
         super.onDetach(detachEvent);
     }
 
@@ -327,8 +355,6 @@ public class DashboardView extends VerticalLayout {
         currentResults = new ArrayList<>(tabulationService.calculateAllContingentResults());
         sortResults(currentResults, currentSelectedCategory);
         grid.setItems(currentResults);
-        
-        // Update the detailed score tables
         updateScoreTables(currentSelectedCategory);
     }
 
@@ -336,21 +362,9 @@ public class DashboardView extends VerticalLayout {
         private final UI ui;
         private final DashboardView view;
         private volatile boolean running = true;
-
-        FeederThread(UI ui, DashboardView view) {
-            this.ui = ui;
-            this.view = view;
-        }
-
+        FeederThread(UI ui, DashboardView view) { this.ui = ui; this.view = view; }
         @Override
-        public void run() {
-            if (running) {
-                ui.access(view::refreshGrid);
-            }
-        }
-
-        public void stop() {
-            running = false;
-        }
+        public void run() { if (running) ui.access(view::refreshGrid); }
+        public void stop() { running = false; }
     }
 }
