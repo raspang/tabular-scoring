@@ -5,8 +5,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -26,6 +29,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
@@ -58,13 +62,23 @@ public class JudgeDataEntryView extends VerticalLayout {
     private final Map<Criteria, IntegerField> scoreFields = new HashMap<>();
     private Binder<Map<Criteria, Integer>> binder = new Binder<>();
 
-    // Added summary label to show who is being scored
     private final Span scoringSummary = new Span();
+
+    // --- History Section Components ---
+    private final Div historySection = createSection(false);
+    private final Grid<HistoryItem> historyGrid = new Grid<>(HistoryItem.class, false);
+    
+    // Track if we are in "Edit Mode" to pre-fill scores
+    private Contingent editModeContingent = null;
+    private Category editModeCategory = null;
+
+    // Simple record to hold history data
+    private record HistoryItem(Contingent contingent, Category category) {}
 
     private final Div judgeSelectionSection = createSection(false);
     private final Div contingentCategorySelectionSection = createSection(false);
-    private final Div criteriaReminderSection = createSection(false); 
     private final Div scoringSection = createSection(true); 
+    private final Div criteriaReminderSection = createSection(false); 
 
     public JudgeDataEntryView(ScoreService scoreService, ScoreRepository scoreRepository, JudgeRepository judgeRepository, 
                               CriteriaRepository criteriaRepository, ContingentRepository contingentRepository) {
@@ -77,16 +91,8 @@ public class JudgeDataEntryView extends VerticalLayout {
 
         // --- Inject Custom CSS for Blur Effect ---
         Html blurStyle = new Html("<style>" +
-                ".blurred-criteria { " +
-                "  filter: blur(4px); " +
-                "  opacity: 0.75; " +
-                "  transition: all 0.3s ease-in-out; " +
-                "  cursor: pointer; " +
-                "} " +
-                ".blurred-criteria:hover { " +
-                "  filter: blur(0px); " +
-                "  opacity: 1; " +
-                "} " +
+                ".blurred-criteria { filter: blur(4px); opacity: 0.75; transition: all 0.3s ease-in-out; cursor: pointer; } " +
+                ".blurred-criteria:hover { filter: blur(0px); opacity: 1; } " +
                 "</style>");
         
         // --- Layout Configuration ---
@@ -101,8 +107,6 @@ public class JudgeDataEntryView extends VerticalLayout {
         contentLayout.setSpacing(true);
         contentLayout.setPadding(true);
         contentLayout.setAlignItems(Alignment.STRETCH);
-        
-        // Add the CSS to the top of the content layout
         contentLayout.add(blurStyle);
 
         // --- 1. Judge Selection Section ---
@@ -125,17 +129,12 @@ public class JudgeDataEntryView extends VerticalLayout {
         contingentComboBox.setItemLabelGenerator(Contingent::getDisplayName);
         
         FormLayout selectionForm = new FormLayout(contingentComboBox, categoryComboBox);
-        selectionForm.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1), 
-                new FormLayout.ResponsiveStep("500px", 2)
-        );
+        selectionForm.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1), new FormLayout.ResponsiveStep("500px", 2));
         contingentCategorySelectionSection.add(selectionInstruction, selectionForm);
         contingentCategorySelectionSection.setVisible(false);
 
         // --- 3. Scoring Section ---
         H3 scoringTitle = new H3("Enter Scores");
-        
-        // Scoring Summary (Enhancement to prevent scoring the wrong person)
         scoringSummary.getStyle().set("font-weight", "bold");
         scoringSummary.getStyle().set("font-size", "var(--lumo-font-size-l)");
         scoringSummary.getStyle().set("color", "var(--lumo-primary-text-color)");
@@ -145,10 +144,7 @@ public class JudgeDataEntryView extends VerticalLayout {
         Paragraph scoringInstruction = new Paragraph("Enter a score from 1 to 10 for each criterion.");
         scoringInstruction.getStyle().set("color", "var(--lumo-secondary-text-color)");
         
-        criteriaForm.setResponsiveSteps(
-                new FormLayout.ResponsiveStep("0", 1), 
-                new FormLayout.ResponsiveStep("500px", 2)
-        );
+        criteriaForm.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1), new FormLayout.ResponsiveStep("500px", 2));
         
         submitButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_LARGE);
         submitButton.getStyle().set("margin-top", "var(--lumo-space-m)");
@@ -156,11 +152,14 @@ public class JudgeDataEntryView extends VerticalLayout {
         VerticalLayout submitLayout = new VerticalLayout(submitButton);
         submitLayout.setAlignItems(Alignment.CENTER);
         
-        // Add summary before the form
         scoringSection.add(scoringTitle, scoringSummary, scoringInstruction, criteriaForm, submitLayout);
         scoringSection.setVisible(false);
 
-        // --- 4. Criteria Reminder Section (With Blur Effect) ---
+        // --- 4. History Section (NEW) ---
+        setupHistoryGrid();
+        historySection.setVisible(false);
+
+        // --- 5. Criteria Reminder Section (With Blur Effect) ---
         H3 reminderTitle = new H3("Grading Criteria Reference");
         reminderTitle.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
         
@@ -173,26 +172,28 @@ public class JudgeDataEntryView extends VerticalLayout {
 
         criteriaReminderSection.add(reminderTitle, hoverHint, createCriteriaTable());
         criteriaReminderSection.setVisible(false); 
-        
-        // Apply the blur CSS class
         criteriaReminderSection.addClassName("blurred-criteria");
-        // Give it a distinct "reference card" look
         criteriaReminderSection.getStyle().set("background-color", "var(--lumo-contrast-10pct)");
         criteriaReminderSection.getStyle().set("border", "1px dashed var(--lumo-contrast-30pct)");
 
         // --- Add all sections to the main view ---
-        contentLayout.add(judgeSelectionSection, contingentCategorySelectionSection, scoringSection, criteriaReminderSection);
+        // Order: Judge -> Selection -> Scoring -> History -> Reminder
+        contentLayout.add(judgeSelectionSection, contingentCategorySelectionSection, scoringSection, historySection, criteriaReminderSection);
         add(contentLayout);
 
         // --- Event Listeners ---
         judgeComboBox.addValueChangeListener(event -> {
             boolean judgeSelected = event.getValue() != null;
             contingentCategorySelectionSection.setVisible(judgeSelected);
+            historySection.setVisible(judgeSelected); 
             criteriaReminderSection.setVisible(judgeSelected); 
             
-            if (!judgeSelected) {
+            if (judgeSelected) {
+                loadHistory(); // Load history when judge is selected
+            } else {
                 clearContingentAndCategory();
                 scoringSection.setVisible(false);
+                historySection.setVisible(false);
                 criteriaReminderSection.setVisible(false);
             }
         });
@@ -202,8 +203,81 @@ public class JudgeDataEntryView extends VerticalLayout {
             checkAndEnableScoringSection();
         });
 
-        contingentComboBox.addValueChangeListener(event -> checkAndEnableScoringSection());
+        contingentComboBox.addValueChangeListener(event -> {
+            // If user manually changes contingent while in edit mode, cancel edit mode
+            if (editModeContingent != null && !editModeContingent.equals(event.getValue())) {
+                editModeContingent = null;
+                editModeCategory = null;
+            }
+            checkAndEnableScoringSection();
+        });
+
         submitButton.addClickListener(event -> submitScores());
+    }
+
+    private void setupHistoryGrid() {
+        H3 historyTitle = new H3("Your Scoring History");
+        historyTitle.getStyle().set("margin-top", "0");
+        historyTitle.getStyle().set("margin-bottom", "var(--lumo-space-xs)");
+        
+        Paragraph historyHint = new Paragraph("Click 'Edit' to modify previously submitted scores.");
+        historyHint.getStyle().set("font-size", "var(--lumo-font-size-s)");
+        historyHint.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        historyHint.getStyle().set("margin-bottom", "var(--lumo-space-s)");
+
+        historyGrid.addColumn(item -> item.contingent().getDisplayName()).setHeader("Contingent").setFlexGrow(2);
+        historyGrid.addColumn(item -> item.category().name().replace("_", " ")).setHeader("Category").setFlexGrow(1);
+        
+        historyGrid.addComponentColumn(item -> {
+            Button editBtn = new Button("Edit", e -> loadScoresForEdit(item));
+            editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE);
+            editBtn.getStyle().set("color", "var(--lumo-primary-color)");
+            editBtn.getStyle().set("font-weight", "bold");
+            return editBtn;
+        });
+        
+        historyGrid.setWidth("100%");
+        historySection.add(historyTitle, historyHint, historyGrid);
+    }
+
+    private void loadHistory() {
+        Judge selectedJudge = judgeComboBox.getValue();
+        if (selectedJudge == null) {
+            historyGrid.setItems(new ArrayList<>());
+            return;
+        }
+        
+        // Fetch all scores and filter for the current judge
+        List<Score> allScores = scoreRepository.findAll();
+        Map<Contingent, Set<Category>> scoredMap = new LinkedHashMap<>();
+        
+        for (Score s : allScores) {
+            if (s.getJudge().equals(selectedJudge)) {
+                scoredMap.computeIfAbsent(s.getContingent(), k -> new LinkedHashSet<>())
+                         .add(s.getCriteria().getCategory());
+            }
+        }
+        
+        List<HistoryItem> items = new ArrayList<>();
+        for (Map.Entry<Contingent, Set<Category>> entry : scoredMap.entrySet()) {
+            for (Category cat : entry.getValue()) {
+                items.add(new HistoryItem(entry.getKey(), cat));
+            }
+        }
+        
+        historyGrid.setItems(items);
+    }
+
+    private void loadScoresForEdit(HistoryItem item) {
+        editModeContingent = item.contingent();
+        editModeCategory = item.category();
+        
+        // Setting these values triggers the listeners, which will call updateCriteriaFields()
+        contingentComboBox.setValue(item.contingent());
+        categoryComboBox.setValue(item.category());
+        
+        // Scroll to scoring section for better UX
+        scoringSection.scrollIntoView();
     }
 
     private Div createSection(boolean highlight) {
@@ -271,11 +345,11 @@ public class JudgeDataEntryView extends VerticalLayout {
         boolean readyForScoring = contingentComboBox.getValue() != null && categoryComboBox.getValue() != null;
         scoringSection.setVisible(readyForScoring);
         
-        // Update the scoring summary to prevent data entry errors
         if (readyForScoring) {
             Contingent c = contingentComboBox.getValue();
             Category cat = categoryComboBox.getValue();
-            scoringSummary.setText("Now Scoring: " + c.getDisplayName() + "  |  Category: " + cat.name().replace("_", " "));
+            String modeText = (editModeContingent != null) ? " (Editing)" : "";
+            scoringSummary.setText("Now Scoring: " + c.getDisplayName() + "  |  Category: " + cat.name().replace("_", " ") + modeText);
         } else {
             scoringSummary.setText("");
         }
@@ -297,7 +371,6 @@ public class JudgeDataEntryView extends VerticalLayout {
                 scoreField.setStepButtonsVisible(true);
                 scoreField.setWidthFull();
                 
-                // Enhance field styling for easier tapping/clicking
                 scoreField.getStyle().set("font-size", "var(--lumo-font-size-l)");
                 scoreField.getStyle().set("padding", "var(--lumo-space-s)");
                 
@@ -308,6 +381,28 @@ public class JudgeDataEntryView extends VerticalLayout {
                         .asRequired("Score is required")
                         .bind(map -> map.get(criteria), (map, value) -> map.put(criteria, value));
             }
+        }
+
+        // --- PRE-FILL SCORES IF IN EDIT MODE ---
+        if (editModeContingent != null && editModeCategory != null && category == editModeCategory) {
+            Judge currentJudge = judgeComboBox.getValue();
+            if (currentJudge != null) {
+                List<Score> allScores = scoreRepository.findAll();
+                for (Score s : allScores) {
+                    if (s.getJudge().equals(currentJudge) && 
+                        s.getContingent().equals(editModeContingent) && 
+                        s.getCriteria().getCategory() == editModeCategory) {
+                        
+                        IntegerField field = scoreFields.get(s.getCriteria());
+                        if (field != null) {
+                            field.setValue(s.getRawScore());
+                        }
+                    }
+                }
+            }
+            // Clear edit mode after pre-filling
+            editModeContingent = null;
+            editModeCategory = null;
         }
     }
 
@@ -331,19 +426,18 @@ public class JudgeDataEntryView extends VerticalLayout {
         }
 
         try {
-            scoreService.saveAllScores(scoresToSave);
+            // NOTE: Ensure your ScoreService handles "Upsert" (deleting old scores for this judge+contingent+category before saving)
+            scoreService.saveAllScores(scoresToSave); 
+            
             Notification.show("Scores for " + contingent.getDisplayName() + " submitted successfully!", 3000, Notification.Position.MIDDLE);
             
-            // Clear for next entry, but keep the judge selected.
             clearContingentAndCategory();
             scoringSection.setVisible(false);
-            
-            // FIX: Removed criteriaReminderSection.setVisible(false); 
-            // The reminder should stay visible as long as the judge is logged in.
-            
             updateCriteriaFields(null); 
+            
+            loadHistory(); // Refresh the history grid
         } catch (DataIntegrityViolationException e) {
-            Notification.show("Error: Scores for this contingent have already been submitted by this judge.", 5000, Notification.Position.MIDDLE);
+            Notification.show("Error: Scores for this contingent already exist. Please use the 'Edit' button in your history to modify them.", 5000, Notification.Position.MIDDLE);
         }
     }
 }

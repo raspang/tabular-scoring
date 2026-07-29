@@ -80,18 +80,28 @@ public class DashboardView extends VerticalLayout {
                 "@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } } " +
                 ".dashboard-grid { width: 100%; font-size: var(--lumo-font-size-s); } " +
                 
-                /* Score Tables CSS */
-                ".category-title { color: var(--lumo-primary-text-color); border-bottom: 2px solid var(--lumo-primary-color); padding-bottom: var(--lumo-space-xs); margin-top: var(--lumo-space-l); margin-bottom: var(--lumo-space-m); font-size: var(--lumo-font-size-l); } " +
-                ".criteria-table-card { background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: 0 2px 8px var(--lumo-shade-10pct); margin-bottom: var(--lumo-space-l); overflow: hidden; } " +
-                ".criteria-title { margin: 0; padding: var(--lumo-space-m); background-color: var(--lumo-contrast-5pct); font-size: var(--lumo-font-size-m); border-bottom: 1px solid var(--lumo-contrast-10pct); color: var(--lumo-body-text-color); } " +
+                /* Score Tables CSS - Matching Vaadin Grid Lumo Theme */
+                /* Category Title: Acts as a clear section divider with generous spacing */
+                ".category-title { color: var(--lumo-primary-text-color); border-bottom: 2px solid var(--lumo-primary-color); padding-bottom: var(--lumo-space-xs); margin-top: var(--lumo-space-xl); margin-bottom: var(--lumo-space-l); font-size: var(--lumo-font-size-l); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; } " +
+                
+                ".criteria-table-card { background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: 0 2px 8px var(--lumo-shade-10pct); margin-bottom: var(--lumo-space-l); overflow: hidden; border: 1px solid var(--lumo-contrast-10pct); } " +
+                ".criteria-title { margin: 0; padding: var(--lumo-space-m); background-color: var(--lumo-contrast-5pct); font-size: var(--lumo-font-size-m); border-bottom: 1px solid var(--lumo-contrast-10pct); color: var(--lumo-body-text-color); font-weight: 500; } " +
                 ".table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; } " +
-                ".score-table { width: 100%; border-collapse: collapse; font-size: var(--lumo-font-size-s); } " +
+                ".score-table { width: 100%; border-collapse: collapse; font-size: var(--lumo-font-size-s); font-family: var(--lumo-font-family); } " +
                 ".score-table th, .score-table td { padding: var(--lumo-space-s) var(--lumo-space-m); text-align: center; border-bottom: 1px solid var(--lumo-contrast-10pct); white-space: nowrap; } " +
-                ".score-table th { background-color: var(--lumo-contrast-5pct); font-weight: bold; color: var(--lumo-secondary-text-color); position: sticky; top: 0; z-index: 2; } " +
+                
+                /* Header styling to perfectly match Vaadin Grid */
+                ".score-table th { background-color: var(--lumo-contrast-5pct); font-weight: 500; color: var(--lumo-secondary-text-color); font-size: var(--lumo-font-size-s); position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--lumo-contrast-20pct); } " +
+                
+                /* Row striping to match LUMO_ROW_STRIPES */
+                ".score-table tbody tr:nth-child(even) td { background-color: var(--lumo-contrast-5pct); } " +
+                
                 /* Sticky First Column for Mobile Scrolling */
-                ".score-table td.contingent-cell { text-align: left; font-weight: bold; background-color: var(--lumo-base-color); position: sticky; left: 0; z-index: 1; border-right: 2px solid var(--lumo-contrast-10pct); } " +
-                ".score-table th:first-child { text-align: left; position: sticky; left: 0; z-index: 3; background-color: var(--lumo-contrast-5pct); border-right: 2px solid var(--lumo-contrast-10pct); } " +
-                ".score-table td.score-cell { font-variant-numeric: tabular-nums; font-weight: 500; } " +
+                ".score-table td.contingent-cell { text-align: left; font-weight: 500; background-color: var(--lumo-base-color); position: sticky; left: 0; z-index: 1; border-right: 1px solid var(--lumo-contrast-10pct); } " +
+                ".score-table tbody tr:nth-child(even) td.contingent-cell { background-color: var(--lumo-contrast-5pct); } " +
+                ".score-table th:first-child { text-align: left; position: sticky; left: 0; z-index: 3; background-color: var(--lumo-contrast-5pct); border-right: 1px solid var(--lumo-contrast-20pct); } " +
+                
+                ".score-table td.score-cell { font-variant-numeric: tabular-nums; font-weight: 400; color: var(--lumo-body-text-color); } " +
                 ".score-table tbody tr:hover td:not(.contingent-cell) { background-color: var(--lumo-primary-color-10pct); } " +
                 ".no-data { display: flex; align-items: center; justify-content: center; height: 150px; color: var(--lumo-secondary-text-color); font-style: italic; } " +
                 
@@ -102,6 +112,7 @@ public class DashboardView extends VerticalLayout {
                 "  .dashboard-grid { font-size: var(--lumo-font-size-xs); } " +
                 "  .score-table { font-size: var(--lumo-font-size-xs); } " +
                 "  .score-table th, .score-table td { padding: var(--lumo-space-xs) var(--lumo-space-s); } " +
+                "  .category-title { font-size: var(--lumo-font-size-m); margin-top: var(--lumo-space-l); } " +
                 "} " +
                 "</style>");
 
@@ -190,7 +201,7 @@ public class DashboardView extends VerticalLayout {
             NumberRenderer<ContingentResultDTO> totalRenderer = selectedCategory == Category.STREET_DANCE ?
                     new NumberRenderer<ContingentResultDTO>(ContingentResultDTO::getStreetDanceTotal, decimalFormat, "N/A") :
                     new NumberRenderer<ContingentResultDTO>(ContingentResultDTO::getCulturalShowdownTotal, decimalFormat, "N/A");
-
+                    
             grid.addColumn(totalRenderer).setHeader(totalHeader).setSortable(false).setFlexGrow(1).setTextAlign(ColumnTextAlign.END);
         }
 
