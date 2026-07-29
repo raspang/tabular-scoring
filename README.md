@@ -53,6 +53,37 @@ To get this project up and running on your local machine, follow these steps:
     ```
     You should now see the application's user interface.
 
+## How to Run with Docker
+
+To run this application as a Docker container, follow these steps:
+
+### Prerequisites
+
+*   **Docker:** Ensure Docker is installed and running on your system.
+
+### Steps
+
+1.  **Build the Docker image:**
+    Navigate to the root directory of the project (`tab/`) in your terminal and execute the following command to build the Docker image:
+    ```bash
+    docker build -t tab-app .
+    ```
+    This command builds a Docker image named `tab-app` using the `Dockerfile` in the current directory.
+
+2.  **Run the Docker container with persistent data:**
+    To ensure your application's data persists even if the Docker container is removed or restarted, you should mount a volume. This will store the H2 database files on your host machine.
+
+    ```bash
+    docker run -p 8080:8080 -v tab_data:/app/data tab-app
+    ```
+    This command starts a container from the `tab-app` image, maps port 8080, and creates/uses a Docker volume named `tab_data` to store the database files located in `/app/data` inside the container. You can then access your application by navigating to `http://localhost:8080` in your web browser.
+
+    Alternatively, you can mount a specific directory from your host machine:
+    ```bash
+    docker run -p 8080:8080 -v "$(pwd)/data_persistent:/app/data" tab-app
+    ```
+    This command maps the `data_persistent` directory in your current working directory on the host to `/app/data` inside the container. Make sure the `data_persistent` directory exists before running the command.
+
 ## Database
 
 This application utilizes an embedded H2 database. By default, the database files are created in the `data/` directory within the project root (e.g., `data/tabdb.mv.db`). If `src/main/resources/data.sql` is present and configured to run on startup, the database schema and initial data will be recreated each time the application starts.
