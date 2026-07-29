@@ -1,4 +1,4 @@
-# Tabulation System
+# Simple Tabulation 
 
 A web application for managing and tabulating scores for competitions, built with Spring Boot and Vaadin. This system allows for the definition of judges, contingents (participants), and scoring criteria, as well as the efficient recording and updating of scores.
 
